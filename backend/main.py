@@ -54,7 +54,8 @@ async def upload_image(file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, buffer)
         
         port = os.getenv("PORT", 8010)
-        image_url = f"http://127.0.0.1:{port}/images/{unique_filename}"
+        base_url = os.getenv("BASE_URL", f"http://127.0.0.1:{port}")
+        image_url = f"{base_url}/images/{unique_filename}"
         
         # Read file for processing
         with open(file_path, "rb") as f:
