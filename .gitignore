@@ -1,0 +1,21 @@
+# Environments
+.env
+backend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+backend/uploads/
+backend/backend/uploads/
+
+# Node
+node_modules/
+dist/
+frontend/dist/
+
+# DB
+*.db
+.pytest_cache/
