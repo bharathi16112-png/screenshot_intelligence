@@ -1,10 +1,6 @@
 import json
-from sentence_transformers import SentenceTransformer
 from agents.embedding_agent import generate_embedding
 from db.database import SessionLocal, Screenshot, Embedding
-
-# Load model locally
-model = SentenceTransformer('all-MiniLM-L6-v2')
 
 import hashlib
 

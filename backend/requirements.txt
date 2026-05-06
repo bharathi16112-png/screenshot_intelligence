@@ -6,8 +6,5 @@ groq
 python-dotenv
 pillow
 langgraph
-sentence-transformers
-transformers
-torch
+requests
 python-multipart
-easyocr
