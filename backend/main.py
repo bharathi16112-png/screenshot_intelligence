@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, UploadFile, File, Query, HTTPException
+from fastapi import FastAPI, UploadFile, File, Query, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from agents.graph import ingestion_graph
@@ -42,7 +42,7 @@ def read_root():
     return {"message": "Multimodal Visual Memory AI is online."}
 
 @app.post("/upload")
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image(request: Request, file: UploadFile = File(...)):
     """
     Ingests an image, runs multi-agent processing, and saves to memory.
     """
@@ -54,8 +54,8 @@ async def upload_image(file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        port = os.getenv("PORT", 8010)
-        base_url = os.getenv("BASE_URL", f"http://127.0.0.1:{port}")
+        # Dynamically determine base URL from request
+        base_url = str(request.base_url).rstrip("/")
         image_url = f"{base_url}/images/{unique_filename}"
         
         # Read file for processing
