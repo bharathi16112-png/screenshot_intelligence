@@ -46,19 +46,28 @@ def get_relevant_memories(query_text: str, limit: int = 5):
             db.rollback() 
             print(f"SQL search failed: {e}")
             
+            if not query_embedding or len(query_embedding) < 10:
+                print("Invalid query embedding, skipping semantic search.")
+                return {"results": [], "top_score": 0.0}
+
             all_embeddings = db.query(Embedding).all()
             in_memory_results = []
             q_vec = np.array(query_embedding)
             
             for emb in all_embeddings:
                 try:
+                    if not emb.vector: continue
                     e_vec = np.array(json.loads(emb.vector))
+                    if len(e_vec) != len(q_vec): continue
+                    
                     norm_q = np.linalg.norm(q_vec)
                     norm_e = np.linalg.norm(e_vec)
                     if norm_q > 0 and norm_e > 0:
                         similarity = np.dot(q_vec, e_vec) / (norm_q * norm_e)
                         in_memory_results.append((emb.screenshot_id, float(similarity)))
-                except: continue
+                except Exception as ex:
+                    print(f"Skipping corrupted embedding {emb.screenshot_id}: {ex}")
+                    continue
             
             in_memory_results.sort(key=lambda x: x[1], reverse=True)
             formatted_results = in_memory_results[:fetch_limit]
