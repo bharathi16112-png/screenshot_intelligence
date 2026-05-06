@@ -72,6 +72,18 @@ def get_relevant_memories(query_text: str, limit: int = 5):
             in_memory_results.sort(key=lambda x: x[1], reverse=True)
             formatted_results = in_memory_results[:fetch_limit]
 
+        # 3. KEYWORD FALLBACK (If semantic search finds nothing or fails)
+        if not formatted_results:
+            print("Trying keyword fallback search...")
+            search_pattern = f"%{query_text}%"
+            keyword_results = db.query(Screenshot).filter(
+                (Screenshot.extracted_text.ilike(search_pattern)) | 
+                (Screenshot.image_description.ilike(search_pattern))
+            ).limit(limit).all()
+            
+            for screenshot in keyword_results:
+                formatted_results.append((screenshot.id, 0.9)) # Fake high score for keywords
+
         # Fetch metadata and deduplicate
         memories = []
         seen_hashes = set()
