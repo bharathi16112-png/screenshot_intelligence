@@ -1,27 +1,31 @@
 import os
 import base64
-import io
-from PIL import Image
 from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+def describe_image(image_bytes: bytes) -> str:
+    """
+    Describes an image using Groq's Llama-3.2-11b-vision-preview (Cloud-based).
+    """
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        print("GROQ_API_KEY not found in environment")
+        return "Description unavailable: No API Key"
 
-def describe_image_groq(image_bytes: bytes) -> str:
-    """
-    Describes image using Groq Vision API.
-    """
+    client = Groq(api_key=api_key)
+
     try:
+        # Encode bytes to base64 string
         base64_image = base64.b64encode(image_bytes).decode('utf-8')
         
-        chat_completion = client.chat.completions.create(
+        response = client.chat.completions.create(
             messages=[
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Describe this image in detail. Extract any visible text exactly as it appears. Provide a unified description that includes both the visual context and the text found. Keep it concise but thorough."},
+                        {"type": "text", "text": "Describe this screenshot in detail, focusing on key elements, text, and context."},
                         {
                             "type": "image_url",
                             "image_url": {
@@ -33,13 +37,40 @@ def describe_image_groq(image_bytes: bytes) -> str:
             ],
             model="llama-3.2-11b-vision-preview",
         )
-        return chat_completion.choices[0].message.content
+        return response.choices[0].message.content
     except Exception as e:
-        print(f"Groq Vision failed: {e}")
-        return "Visual description unavailable."
+        print(f"Vision analysis failed: {e}")
+        return f"Description unavailable: {str(e)}"
 
-def get_image_description(image_bytes: bytes) -> str:
+def extract_text_fallback(image_bytes: bytes) -> str:
     """
-    API-only vision strategy for cloud deployment.
+    Fallback OCR using Groq (since we removed local EasyOCR).
     """
-    return describe_image_groq(image_bytes)
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return ""
+
+    client = Groq(api_key=api_key)
+    try:
+        base64_image = base64.b64encode(image_bytes).decode('utf-8')
+        response = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Extract all readable text from this image. Return ONLY the text, nothing else."},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}",
+                            },
+                        },
+                    ],
+                }
+            ],
+            model="llama-3.2-11b-vision-preview",
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"OCR Fallback failed: {e}")
+        return ""
