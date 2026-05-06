@@ -54,8 +54,11 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        # Dynamically determine base URL from request
+        # Dynamically determine base URL from request, forcing https for production
         base_url = str(request.base_url).rstrip("/")
+        if "localhost" not in base_url and "127.0.0.1" not in base_url:
+            base_url = base_url.replace("http://", "https://")
+            
         image_url = f"{base_url}/images/{unique_filename}"
         
         # Read file for processing

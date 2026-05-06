@@ -33,7 +33,7 @@ def get_image_description(image_bytes: bytes) -> str:
                     ],
                 }
             ],
-            model="llama-3.2-90b-vision-preview",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
         )
         return response.choices[0].message.content
     except Exception as e:
