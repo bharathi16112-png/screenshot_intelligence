@@ -118,6 +118,31 @@ def search_memories(q: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/memories")
+def clear_memories():
+    """
+    Wipes all memories from the database.
+    """
+    db = SessionLocal()
+    try:
+        from db.database import Tag, Embedding
+        db.query(Embedding).delete()
+        db.query(Tag).delete()
+        db.query(Screenshot).delete()
+        db.commit()
+        
+        # Also try to clear local files
+        if os.path.exists(UPLOAD_DIR):
+            shutil.rmtree(UPLOAD_DIR)
+            os.makedirs(UPLOAD_DIR)
+            
+        return {"status": "success", "message": "All memories cleared."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
 @app.get("/memories")
 def list_memories():
     """
