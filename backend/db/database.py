@@ -7,7 +7,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./memory.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+
+IS_VERCEL = os.environ.get("VERCEL", False)
+
+if not DATABASE_URL:
+    if IS_VERCEL:
+        DATABASE_URL = "sqlite:////tmp/memory.db"
+    else:
+        DATABASE_URL = "sqlite:///./memory.db"
 
 # For SQLite, we need connect_args
 if DATABASE_URL.startswith("sqlite"):
