@@ -20,8 +20,12 @@ app.add_middleware(
 
 # Static files - only mount locally, not on Vercel (ephemeral filesystem)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 IS_VERCEL = os.environ.get("VERCEL", False)
+
+if IS_VERCEL:
+    UPLOAD_DIR = "/tmp/uploads"
+else:
+    UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 
 if not IS_VERCEL:
     if not os.path.exists(UPLOAD_DIR):
