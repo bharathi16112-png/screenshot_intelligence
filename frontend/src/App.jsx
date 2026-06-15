@@ -45,12 +45,17 @@ function App() {
     formData.append('file', file);
 
     try {
-      await axios.post(`${API_BASE}/upload`, formData);
+      const res = await axios.post(`${API_BASE}/upload`, formData);
+      if (res.data.error) {
+        alert("Upload Failed from Backend: " + res.data.error);
+        return;
+      }
       setUploadSuccess(true);
       fetchMemories();
       setTimeout(() => setUploadSuccess(false), 3000);
     } catch (err) {
       console.error("Upload failed", err);
+      alert("Upload Request Failed: " + String(err));
     } finally {
       setIsUploading(false);
     }
