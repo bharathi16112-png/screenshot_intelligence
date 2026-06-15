@@ -33,15 +33,20 @@ if not IS_VERCEL:
     from fastapi.staticfiles import StaticFiles
     app.mount("/images", StaticFiles(directory=UPLOAD_DIR), name="images")
 
+DB_INIT_ERROR = None
+try:
+    print("Initializing database...")
+    init_db()
+    print("Database initialized successfully.")
+except Exception as e:
+    import traceback
+    DB_INIT_ERROR = str(e) + "\n" + traceback.format_exc()
+    print(f"Database initialization failed: {e}")
+
 @app.on_event("startup")
 def startup():
-    try:
-        print("Initializing database...")
-        init_db()
-        print("Database initialized successfully.")
-    except Exception as e:
-        print(f"Database initialization failed: {e}")
-        # Don't raise - allow app to start even if DB fails
+    # Keep for local backward compatibility, but actual init happens above
+    pass
 
 @app.get("/api/")
 @app.get("/")
@@ -110,7 +115,9 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
     except Exception as e:
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        if DB_INIT_ERROR:
+            return {"error": f"Database Init Failed: {DB_INIT_ERROR}", "traceback": traceback.format_exc()}
+        return {"error": str(e), "traceback": traceback.format_exc()}
 
 @app.get("/api/search")
 @app.get("/search")
@@ -190,6 +197,8 @@ def list_memories():
             db.close()
     except Exception as e:
         import traceback
+        if DB_INIT_ERROR:
+            return {"error": f"Database Init Failed: {DB_INIT_ERROR}", "traceback": traceback.format_exc()}
         return {"error": str(e), "traceback": traceback.format_exc()}
 
 if __name__ == "__main__":
