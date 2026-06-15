@@ -75,7 +75,7 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
                 "authorization": f"Bearer {blob_token}",
                 "x-api-version": "7"
             }
-            response = req.put(url, headers=headers, data=image_bytes)
+            response = req.post(url, headers=headers, data=image_bytes)
             if response.status_code != 200:
                 raise Exception(f"Vercel Blob Upload Failed: {response.status_code} {response.text}")
             image_url = response.json()["url"]
