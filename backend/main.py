@@ -201,6 +201,18 @@ def list_memories():
             return {"error": f"Database Init Failed: {DB_INIT_ERROR}", "traceback": traceback.format_exc()}
         return {"error": str(e), "traceback": traceback.format_exc()}
 
+@app.get("/api/debug")
+@app.get("/debug")
+def get_debug_info():
+    from db.database import DATABASE_URL
+    import os
+    return {
+        "db_prefix": DATABASE_URL.split(":")[0] if DATABASE_URL else "none",
+        "has_postgres_url": "POSTGRES_URL" in os.environ,
+        "has_database_url": "DATABASE_URL" in os.environ,
+        "vercel_env": os.environ.get("VERCEL_ENV", "none")
+    }
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8010))
