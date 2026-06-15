@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./memory.db")
 
 # For SQLite, we need connect_args
 if DATABASE_URL.startswith("sqlite"):
