@@ -1,7 +1,6 @@
 import os
 from fastapi import FastAPI, UploadFile, File, Query, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from agents.graph import ingestion_graph
 from agents.retrieval_graph import retrieval_graph
 from db.database import init_db, SessionLocal, Screenshot
@@ -13,19 +12,22 @@ app = FastAPI(title="Multimodal Visual Memory Assistant")
 # CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Keeping * but ensuring headers are robust
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Static files for image serving
+# Static files - only mount locally, not on Vercel (ephemeral filesystem)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-if not os.path.exists(UPLOAD_DIR):
-    os.makedirs(UPLOAD_DIR)
+IS_VERCEL = os.environ.get("VERCEL", False)
 
-app.mount("/images", StaticFiles(directory=UPLOAD_DIR), name="images")
+if not IS_VERCEL:
+    if not os.path.exists(UPLOAD_DIR):
+        os.makedirs(UPLOAD_DIR)
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/images", StaticFiles(directory=UPLOAD_DIR), name="images")
 
 @app.on_event("startup")
 def startup():
@@ -35,7 +37,7 @@ def startup():
         print("Database initialized successfully.")
     except Exception as e:
         print(f"Database initialization failed: {e}")
-        raise e
+        # Don't raise - allow app to start even if DB fails
 
 @app.get("/api/")
 @app.get("/")
@@ -55,7 +57,7 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
         # Read file for processing and uploading
         image_bytes = await file.read()
         
-        import requests
+        import requests as req
         blob_token = os.environ.get("BLOB_READ_WRITE_TOKEN")
         if blob_token:
             # Upload to Vercel Blob
@@ -64,16 +66,17 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
                 "authorization": f"Bearer {blob_token}",
                 "x-api-version": "7"
             }
-            response = requests.put(url, headers=headers, data=image_bytes)
+            response = req.put(url, headers=headers, data=image_bytes)
             response.raise_for_status()
             image_url = response.json()["url"]
         else:
             # Fallback to local file system
+            if not os.path.exists(UPLOAD_DIR):
+                os.makedirs(UPLOAD_DIR)
             file_path = os.path.join(UPLOAD_DIR, unique_filename)
             with open(file_path, "wb") as buffer:
                 buffer.write(image_bytes)
             
-            # Dynamically determine base URL from request
             base_url = str(request.base_url).rstrip("/")
             if "localhost" not in base_url and "127.0.0.1" not in base_url:
                 base_url = base_url.replace("http://", "https://")
@@ -112,7 +115,6 @@ def search_memories(q: str = Query(...)):
     Performs agentic search across stored visual memories.
     """
     try:
-        # Run Retrieval Graph
         initial_state = {
             "query": q,
             "refined_query": "",
@@ -148,7 +150,6 @@ def clear_memories():
         db.query(Screenshot).delete()
         db.commit()
         
-        # Also try to clear local files if not using Blob
         if not os.environ.get("BLOB_READ_WRITE_TOKEN") and os.path.exists(UPLOAD_DIR):
             shutil.rmtree(UPLOAD_DIR)
             os.makedirs(UPLOAD_DIR)
@@ -177,12 +178,3 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8010))
     uvicorn.run(app, host="0.0.0.0", port=port)
-
-@app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"])
-def catch_all(request: Request, full_path: str):
-    return {
-        "message": "Catch all reached",
-        "full_path": full_path,
-        "url": str(request.url),
-        "method": request.method
-    }

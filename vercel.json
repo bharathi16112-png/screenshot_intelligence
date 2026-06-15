@@ -1,23 +1,25 @@
 {
   "builds": [
     {
-      "src": "api/[...catchall].py",
+      "src": "api/index.py",
       "use": "@vercel/python"
     },
     {
       "src": "package.json",
-      "use": "@vercel/static-build"
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api/[...catchall].py"
+      "dest": "/api/index.py"
     },
     {
       "src": "/(.*)",
-      "dest": "/dist/$1"
+      "dest": "/$1"
     }
-  ],
-  "outputDirectory": "dist"
+  ]
 }
