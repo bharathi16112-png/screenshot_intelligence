@@ -177,3 +177,12 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8010))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+@app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"])
+def catch_all(request: Request, full_path: str):
+    return {
+        "message": "Catch all reached",
+        "full_path": full_path,
+        "url": str(request.url),
+        "method": request.method
+    }
