@@ -70,13 +70,14 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
         blob_token = os.environ.get("BLOB_READ_WRITE_TOKEN")
         if blob_token:
             # Upload to Vercel Blob
-            url = f"https://blob.vercel-storage.com/{unique_filename}"
+            url = f"https://blob.vercel-storage.com?pathname={unique_filename}"
             headers = {
                 "authorization": f"Bearer {blob_token}",
                 "x-api-version": "7"
             }
             response = req.put(url, headers=headers, data=image_bytes)
-            response.raise_for_status()
+            if response.status_code != 200:
+                raise Exception(f"Vercel Blob Upload Failed: {response.status_code} {response.text}")
             image_url = response.json()["url"]
         else:
             # Fallback to local file system
