@@ -170,7 +170,17 @@ def list_memories():
     db = SessionLocal()
     try:
         memories = db.query(Screenshot).all()
-        return memories
+        result = []
+        for mem in memories:
+            result.append({
+                "id": mem.id,
+                "image_url": mem.image_url,
+                "extracted_text": mem.extracted_text,
+                "image_description": mem.image_description,
+                "created_at": mem.created_at.isoformat() if mem.created_at else None,
+                "tags": [tag.tag_name for tag in mem.tags] if mem.tags else []
+            })
+        return result
     finally:
         db.close()
 
