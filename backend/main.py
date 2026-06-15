@@ -38,10 +38,12 @@ def startup():
         raise e
 
 @app.get("/api/")
+@app.get("/")
 def read_root():
     return {"message": "Multimodal Visual Memory AI is online."}
 
 @app.post("/api/upload")
+@app.post("/upload")
 async def upload_image(request: Request, file: UploadFile = File(...)):
     """
     Ingests an image, runs multi-agent processing, and saves to memory.
@@ -104,6 +106,7 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/search")
+@app.get("/search")
 def search_memories(q: str = Query(...)):
     """
     Performs agentic search across stored visual memories.
@@ -132,6 +135,7 @@ def search_memories(q: str = Query(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/memories")
+@app.delete("/memories")
 def clear_memories():
     """
     Wipes all memories from the database.
@@ -157,6 +161,7 @@ def clear_memories():
         db.close()
 
 @app.get("/api/memories")
+@app.get("/memories")
 def list_memories():
     """
     Lists all memories.
