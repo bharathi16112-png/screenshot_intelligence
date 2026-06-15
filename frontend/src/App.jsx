@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8010';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 function App() {
   const [query, setQuery] = useState('');

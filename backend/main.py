@@ -37,11 +37,11 @@ def startup():
         print(f"Database initialization failed: {e}")
         raise e
 
-@app.get("/")
+@app.get("/api/")
 def read_root():
     return {"message": "Multimodal Visual Memory AI is online."}
 
-@app.post("/upload")
+@app.post("/api/upload")
 async def upload_image(request: Request, file: UploadFile = File(...)):
     """
     Ingests an image, runs multi-agent processing, and saves to memory.
@@ -49,21 +49,34 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
     try:
         file_extension = file.filename.split(".")[-1]
         unique_filename = f"{uuid.uuid4()}.{file_extension}"
-        file_path = os.path.join(UPLOAD_DIR, unique_filename)
         
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Read file for processing and uploading
+        image_bytes = await file.read()
         
-        # Dynamically determine base URL from request, forcing https for production
-        base_url = str(request.base_url).rstrip("/")
-        if "localhost" not in base_url and "127.0.0.1" not in base_url:
-            base_url = base_url.replace("http://", "https://")
+        import requests
+        blob_token = os.environ.get("BLOB_READ_WRITE_TOKEN")
+        if blob_token:
+            # Upload to Vercel Blob
+            url = f"https://blob.vercel-storage.com/{unique_filename}"
+            headers = {
+                "authorization": f"Bearer {blob_token}",
+                "x-api-version": "7"
+            }
+            response = requests.put(url, headers=headers, data=image_bytes)
+            response.raise_for_status()
+            image_url = response.json()["url"]
+        else:
+            # Fallback to local file system
+            file_path = os.path.join(UPLOAD_DIR, unique_filename)
+            with open(file_path, "wb") as buffer:
+                buffer.write(image_bytes)
             
-        image_url = f"{base_url}/images/{unique_filename}"
-        
-        # Read file for processing
-        with open(file_path, "rb") as f:
-            image_bytes = f.read()
+            # Dynamically determine base URL from request
+            base_url = str(request.base_url).rstrip("/")
+            if "localhost" not in base_url and "127.0.0.1" not in base_url:
+                base_url = base_url.replace("http://", "https://")
+                
+            image_url = f"{base_url}/images/{unique_filename}"
         
         # Run LangGraph Ingestion
         initial_state = {
@@ -90,7 +103,7 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/search")
+@app.get("/api/search")
 def search_memories(q: str = Query(...)):
     """
     Performs agentic search across stored visual memories.
@@ -118,7 +131,7 @@ def search_memories(q: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/memories")
+@app.delete("/api/memories")
 def clear_memories():
     """
     Wipes all memories from the database.
@@ -131,8 +144,8 @@ def clear_memories():
         db.query(Screenshot).delete()
         db.commit()
         
-        # Also try to clear local files
-        if os.path.exists(UPLOAD_DIR):
+        # Also try to clear local files if not using Blob
+        if not os.environ.get("BLOB_READ_WRITE_TOKEN") and os.path.exists(UPLOAD_DIR):
             shutil.rmtree(UPLOAD_DIR)
             os.makedirs(UPLOAD_DIR)
             
@@ -143,7 +156,7 @@ def clear_memories():
     finally:
         db.close()
 
-@app.get("/memories")
+@app.get("/api/memories")
 def list_memories():
     """
     Lists all memories.
