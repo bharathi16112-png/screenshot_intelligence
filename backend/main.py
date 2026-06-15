@@ -167,22 +167,26 @@ def list_memories():
     """
     Lists all memories.
     """
-    db = SessionLocal()
     try:
-        memories = db.query(Screenshot).all()
-        result = []
-        for mem in memories:
-            result.append({
-                "id": mem.id,
-                "image_url": mem.image_url,
-                "extracted_text": mem.extracted_text,
-                "image_description": mem.image_description,
-                "created_at": mem.created_at.isoformat() if mem.created_at else None,
-                "tags": [tag.tag_name for tag in mem.tags] if mem.tags else []
-            })
-        return result
-    finally:
-        db.close()
+        db = SessionLocal()
+        try:
+            memories = db.query(Screenshot).all()
+            result = []
+            for mem in memories:
+                result.append({
+                    "id": mem.id,
+                    "image_url": mem.image_url,
+                    "extracted_text": mem.extracted_text,
+                    "image_description": mem.image_description,
+                    "created_at": mem.created_at.isoformat() if mem.created_at else None,
+                    "tags": [tag.tag_name for tag in mem.tags] if mem.tags else []
+                })
+            return result
+        finally:
+            db.close()
+    except Exception as e:
+        import traceback
+        return {"error": str(e), "traceback": traceback.format_exc()}
 
 if __name__ == "__main__":
     import uvicorn
