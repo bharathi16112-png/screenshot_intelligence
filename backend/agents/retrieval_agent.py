@@ -12,7 +12,7 @@ def get_content_hash(text, description):
     combined = f"{clean_text}|{clean_desc}"
     return hashlib.md5(combined.encode()).hexdigest()
 
-def get_relevant_memories(query_text: str, limit: int = 5):
+def get_relevant_memories(query_text: str, limit: int = 5, original_query: str = None):
     """
     Retrieves deduplicated memories based on semantic similarity.
     """
@@ -72,23 +72,29 @@ def get_relevant_memories(query_text: str, limit: int = 5):
             in_memory_results.sort(key=lambda x: x[1], reverse=True)
             formatted_results = in_memory_results[:fetch_limit]
 
-        # 3. KEYWORD FALLBACK (Always run to ensure exact matches are found)
-        print("Running keyword search...")
-        search_pattern = f"%{query_text}%"
-        keyword_results = db.query(Screenshot).filter(
-            (Screenshot.extracted_text.ilike(search_pattern)) | 
-            (Screenshot.image_description.ilike(search_pattern))
-        ).limit(limit).all()
+        # 3. KEYWORD SEARCH (Always run on BOTH refined and original query)
+        # This ensures exact user-typed words always match, even if AI rewrites them
+        queries_to_search = [q for q in [query_text, original_query] if q]
+        keyword_hit_ids = set()
         
-        existing_ids = {r[0] for r in formatted_results}
-        for screenshot in keyword_results:
-            if screenshot.id not in existing_ids:
-                formatted_results.append((screenshot.id, 0.9)) # Fake high score for keywords
-            else:
-                for i, r in enumerate(formatted_results):
-                    if r[0] == screenshot.id:
-                        formatted_results[i] = (screenshot.id, max(r[1], 0.9))
-                        break
+        for kq in queries_to_search:
+            print(f"Running keyword search for: '{kq}'")
+            search_pattern = f"%{kq}%"
+            keyword_results = db.query(Screenshot).filter(
+                (Screenshot.extracted_text.ilike(search_pattern)) | 
+                (Screenshot.image_description.ilike(search_pattern))
+            ).limit(limit).all()
+            
+            existing_ids = {r[0] for r in formatted_results}
+            for screenshot in keyword_results:
+                keyword_hit_ids.add(screenshot.id)
+                if screenshot.id not in existing_ids:
+                    formatted_results.append((screenshot.id, 0.9))
+                else:
+                    for i, r in enumerate(formatted_results):
+                        if r[0] == screenshot.id:
+                            formatted_results[i] = (screenshot.id, max(r[1], 0.9))
+                            break
 
         # Sort again by score after merging
         formatted_results.sort(key=lambda x: x[1], reverse=True)
