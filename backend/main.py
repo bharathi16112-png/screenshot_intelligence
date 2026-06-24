@@ -34,14 +34,21 @@ if not IS_VERCEL:
     app.mount("/images", StaticFiles(directory=UPLOAD_DIR), name="images")
 
 DB_INIT_ERROR = None
-try:
-    print("Initializing database...")
-    init_db()
-    print("Database initialized successfully.")
-except Exception as e:
-    import traceback
-    DB_INIT_ERROR = str(e) + "\n" + traceback.format_exc()
-    print(f"Database initialization failed: {e}")
+db_initialized = False
+
+def ensure_db():
+    global db_initialized, DB_INIT_ERROR
+    if not db_initialized:
+        try:
+            print("Initializing database...")
+            init_db()
+            print("Database initialized successfully.")
+            db_initialized = True
+        except Exception as e:
+            import traceback
+            DB_INIT_ERROR = str(e) + "\n" + traceback.format_exc()
+            print(f"Database initialization failed: {e}")
+            raise RuntimeError(f"Database initialization failed: {DB_INIT_ERROR}")
 
 @app.on_event("startup")
 def startup():
@@ -60,6 +67,7 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
     Ingests an image, runs multi-agent processing, and saves to memory.
     """
     try:
+        ensure_db()
         file_extension = file.filename.split(".")[-1]
         unique_filename = f"{uuid.uuid4()}.{file_extension}"
         
@@ -70,10 +78,12 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
         blob_token = os.environ.get("BLOB_READ_WRITE_TOKEN")
         if blob_token:
             # Upload to Vercel Blob
-            url = f"https://blob.vercel-storage.com/{unique_filename}"
+            url = "https://blob.vercel-storage.com"
             headers = {
                 "authorization": f"Bearer {blob_token}",
-                "x-api-version": "7"
+                "x-api-version": "7",
+                "x-vercel-blob-pathname": unique_filename,
+                "content-type": file.content_type or "application/octet-stream"
             }
             response = req.put(url, headers=headers, data=image_bytes)
             if response.status_code != 200:
@@ -117,8 +127,8 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
         import traceback
         traceback.print_exc()
         if DB_INIT_ERROR:
-            return {"error": f"Database Init Failed: {DB_INIT_ERROR}", "traceback": traceback.format_exc()}
-        return {"error": str(e), "traceback": traceback.format_exc()}
+            raise HTTPException(status_code=500, detail=f"Database Init Failed: {DB_INIT_ERROR}")
+        raise HTTPException(status_code=500, detail=f"{str(e)}\n{traceback.format_exc()}")
 
 @app.get("/api/search")
 @app.get("/search")
@@ -127,6 +137,7 @@ def search_memories(q: str = Query(...)):
     Performs agentic search across stored visual memories.
     """
     try:
+        ensure_db()
         initial_state = {
             "query": q,
             "refined_query": "",
@@ -154,6 +165,7 @@ def clear_memories():
     """
     Wipes all memories from the database.
     """
+    ensure_db()
     db = SessionLocal()
     try:
         from db.database import Tag, Embedding
@@ -180,6 +192,7 @@ def list_memories():
     Lists all memories.
     """
     try:
+        ensure_db()
         db = SessionLocal()
         try:
             memories = db.query(Screenshot).all()
@@ -199,8 +212,8 @@ def list_memories():
     except Exception as e:
         import traceback
         if DB_INIT_ERROR:
-            return {"error": f"Database Init Failed: {DB_INIT_ERROR}", "traceback": traceback.format_exc()}
-        return {"error": str(e), "traceback": traceback.format_exc()}
+            raise HTTPException(status_code=500, detail=f"Database Init Failed: {DB_INIT_ERROR}")
+        raise HTTPException(status_code=500, detail=f"{str(e)}\n{traceback.format_exc()}")
 
 @app.get("/api/debug")
 @app.get("/debug")
