@@ -1,6 +1,6 @@
 import json
 import hashlib
-import numpy as np
+import math
 from agents.embedding_agent import generate_embedding
 from db.database import SessionLocal, Screenshot, Embedding
 
@@ -15,12 +15,13 @@ def get_content_hash(text, description):
 
 def _cosine_similarity(q_vec, e_vec):
     """Compute cosine similarity; returns 0.0 if either vector is all zeros."""
-    norm_q = np.linalg.norm(q_vec)
-    norm_e = np.linalg.norm(e_vec)
+    norm_q = math.sqrt(sum(v*v for v in q_vec))
+    norm_e = math.sqrt(sum(v*v for v in e_vec))
     if norm_q == 0 or norm_e == 0:
         # Zero-vector: fall back to a neutral score so the record is still surfaced
         return 0.0
-    return float(np.dot(q_vec, e_vec) / (norm_q * norm_e))
+    dot_product = sum(q*e for q, e in zip(q_vec, e_vec))
+    return float(dot_product / (norm_q * norm_e))
 
 
 def get_relevant_memories(query_text: str, limit: int = 5):
@@ -45,7 +46,7 @@ def get_relevant_memories(query_text: str, limit: int = 5):
         #    without requiring the pgvector extension to be installed).
         # ------------------------------------------------------------------ #
         if query_embedding and len(query_embedding) >= 10:
-            q_vec = np.array(query_embedding, dtype=np.float32)
+            q_vec = query_embedding
             all_embeddings = db.query(Embedding).all()
             in_memory_results = []
 
@@ -54,7 +55,7 @@ def get_relevant_memories(query_text: str, limit: int = 5):
                     if not emb.vector:
                         continue
                     raw = json.loads(emb.vector)
-                    e_vec = np.array(raw, dtype=np.float32)
+                    e_vec = raw
                     if len(e_vec) != len(q_vec):
                         continue
                     similarity = _cosine_similarity(q_vec, e_vec)
