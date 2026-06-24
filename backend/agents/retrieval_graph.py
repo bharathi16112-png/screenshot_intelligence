@@ -19,16 +19,22 @@ class RetrievalState(TypedDict):
     answer: str
 
 def query_understanding_node(state: RetrievalState):
-    if not client: return {"refined_query": state['query']}
+    """Expand the query with visual keywords, but always preserve the original query too."""
+    if not client:
+        return {"refined_query": state['query']}
     try:
         response = client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "Extract visual keywords for search. Return ONLY keywords."},
+                {"role": "system", "content": "Extract visual keywords for image search. Return ONLY keywords, comma-separated."},
                 {"role": "user", "content": state['query']}
             ],
             model="llama-3.1-8b-instant",
         )
-        return {"refined_query": response.choices[0].message.content}
+        refined = response.choices[0].message.content.strip()
+        # Always include the original query so semantic similarity is not hurt
+        # by a poor LLM paraphrase
+        combined = f"{state['query']} {refined}" if refined else state['query']
+        return {"refined_query": combined}
     except Exception:
         return {"refined_query": state['query']}
 
@@ -37,10 +43,10 @@ def retrieval_node(state: RetrievalState):
         search_data = get_relevant_memories(state['refined_query'], limit=10)
         results = search_data.get("results", [])
         top_score = search_data.get("top_score", 0.0)
-        
-        # Simple threshold
-        filtered_results = [r for r in results if r.get("similarity", 0) >= 0.2]
-        return {"results": filtered_results, "top_score": top_score, "confidence_message": "Found results"}
+
+        # Don't filter by similarity — the retrieval agent already handles
+        # keyword fallback for low-score results. Any result returned is valid.
+        return {"results": results, "top_score": top_score, "confidence_message": "Found results"}
     except Exception as e:
         print(f"Retrieval node failed: {e}")
         return {"results": [], "top_score": 0.0, "confidence_message": "Search error"}
