@@ -7,7 +7,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL", os.getenv("POSTGRES_URL", ""))
+
+# SQLAlchemy 1.4+ requires "postgresql://" but Vercel provides "postgres://"
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+IS_VERCEL = os.environ.get("VERCEL", False)
+
+if not DATABASE_URL:
+    if IS_VERCEL:
+        DATABASE_URL = "sqlite:////tmp/memory.db"
+    else:
+        DATABASE_URL = "sqlite:///./memory.db"
 
 # For SQLite, we need connect_args
 if DATABASE_URL.startswith("sqlite"):

@@ -40,7 +40,11 @@ def query_understanding_node(state: RetrievalState):
 
 def retrieval_node(state: RetrievalState):
     try:
-        search_data = get_relevant_memories(state['refined_query'], limit=10)
+        search_data = get_relevant_memories(
+            state['refined_query'],
+            limit=10,
+            original_query=state['query']  # Always search with original user query too
+        )
         results = search_data.get("results", [])
         top_score = search_data.get("top_score", 0.0)
 
